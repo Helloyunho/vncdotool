@@ -1258,11 +1258,12 @@ class RFBClient:  # type: ignore[misc]
     # incomming data redirector
     # ------------------------------------------------------
     async def dataReceiveLoop(self) -> None:
-        async for data in self.reader:
-            # ~ sys.stdout.write(repr(data) + '\n')
-            # ~ print(f"{len(data), {len(self._packet)}")
+        while not self.reader.at_eof():
+            data = await self.reader.read(16)
+            if not data:
+                break
             self._packet.extend(data)
-            await self.dataReceived(data)
+            asyncio.create_task(self.dataReceived(data))
 
     async def dataReceived(self, data: bytes) -> None:
         await self._handler()
