@@ -507,6 +507,12 @@ class RFBClient:  # type: ignore[misc]
         self.writer.close()
         await self.writer.wait_closed()
 
+    async def write(self, data: bytes) -> None:
+        if self.writer.is_closing():
+            return
+        self.writer.write(data)
+        await self.writer.drain()
+
     # ------------------------------------------------------
     # states used on connection startup
     # ------------------------------------------------------
@@ -527,7 +533,7 @@ class RFBClient:  # type: ignore[misc]
 
             del self._packet[0:12]
             log.debug("Using protocol version %d.%d" % version)
-            self.writer.write(b"RFB %03d.%03d\n" % version)
+            await self.write(b"RFB %03d.%03d\n" % version)
             self._handler = self._handleExpected
             self._version = version
             self._version_server = version_server
@@ -553,7 +559,7 @@ class RFBClient:  # type: ignore[misc]
         valid_types = set(types) & self.SUPPORTED_AUTHS
         if valid_types:
             sec_type = max(valid_types)
-            self.writer.write(pack("!B", sec_type))
+            await self.write(pack("!B", sec_type))
             if sec_type == AuthTypes.NONE:
                 if self._version < (3, 8):
                     await self._doClientInitialization()
@@ -626,7 +632,7 @@ class RFBClient:  # type: ignore[misc]
 
         cipher = AES.new(keyDigest, AES.MODE_ECB)
         ciphertext = cipher.encrypt(userStruct.encode("utf-8"))
-        self.writer.write(ciphertext + key)
+        await self.write(ciphertext + key)
 
     async def ardRequestCredentials(self) -> None:
         if self.username is None:
@@ -639,7 +645,7 @@ class RFBClient:  # type: ignore[misc]
         key = _vnc_des(password)
         des = DES.new(key, DES.MODE_ECB)
         response = des.encrypt(self._challenge)
-        self.writer.write(response)
+        await self.write(response)
 
     async def _handleVNCAuthResult(self, block: bytes) -> None:
         (result,) = unpack("!I", block)
@@ -672,7 +678,7 @@ class RFBClient:  # type: ignore[misc]
         await self.disconnect()
 
     async def _doClientInitialization(self) -> None:
-        self.writer.write(pack("!B", self.shared))
+        await self.write(pack("!B", self.shared))
         await self.expect(self._handleServerInit, 24)
 
     async def _handleServerInit(self, block: bytes) -> None:
@@ -1301,14 +1307,14 @@ class RFBClient:  # type: ignore[misc]
 
     async def setPixelFormat(self, pixel_format: PixelFormat) -> None:
         pixformat = pixel_format.to_bytes()
-        self.writer.write(pack("!Bxxx16s", 0, pixformat))
+        await self.write(pack("!Bxxx16s", 0, pixformat))
         self.pixel_format = pixel_format
 
     async def setEncodings(self, list_of_encodings: Collection[Encoding]) -> None:
-        self.writer.write(pack("!BxH", 2, len(list_of_encodings)))
+        await self.write(pack("!BxH", 2, len(list_of_encodings)))
         for encoding in list_of_encodings:
             log.debug(f"Offering {encoding!r}")
-            self.writer.write(pack("!i", encoding))
+            await self.write(pack("!i", encoding))
 
     async def framebufferUpdateRequest(
         self,
@@ -1322,26 +1328,26 @@ class RFBClient:  # type: ignore[misc]
             width = self.width - x
         if height is None:
             height = self.height - y
-        self.writer.write(pack("!BBHHHH", 3, incremental, x, y, width, height))
+        await self.write(pack("!BBHHHH", 3, incremental, x, y, width, height))
 
     async def keyEvent(self, key: int, down: bool = True) -> None:
         """For most ordinary keys, the "keysym" is the same as the corresponding ASCII value.
         Other common keys are shown in the KEY_ constants."""
-        self.writer.write(pack("!BBxxI", 4, down, key))
+        await self.write(pack("!BBxxI", 4, down, key))
 
     async def pointerEvent(self, x: int, y: int, buttonmask: int = 0) -> None:
         """Indicates either pointer movement or a pointer button press or release. The pointer is
         now at (x-position, y-position), and the current state of buttons 1 to 8 are represented
         by bits 0 to 7 of button-mask respectively, 0 meaning up, 1 meaning down (pressed).
         """
-        self.writer.write(pack("!BBHH", 5, buttonmask, x, y))
+        await self.write(pack("!BBHH", 5, buttonmask, x, y))
 
     async def clientCutText(self, message: str) -> None:
         """The client has new ISO 8859-1 (Latin-1) text in its cut buffer.
         (aka clipboard)
         """
         data = message.encode("iso-8859-1")
-        self.writer.write(pack("!BxxxI", 6, len(data)) + data)
+        await self.write(pack("!BxxxI", 6, len(data)) + data)
 
     # ------------------------------------------------------
     # callbacks
