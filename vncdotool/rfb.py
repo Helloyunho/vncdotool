@@ -460,29 +460,26 @@ class RFBClient:  # type: ignore[misc]
     _HEADER = b"RFB 000.000\n"
     _HEADER_TRANSLATE = bytes.maketrans(b"0123456789", b"0" * 10)
 
-    _packet = bytearray()
-    _handler: Callable[..., Awaitable[None]]
-    _expected_len = 12
-    _expected_args: Tuple[Any, ...] = ()
-    _expected_kwargs: Dict[str, Any] = {}
-    _already_expecting = False
-    _version: Ver = (0, 0)
-    _version_server: Ver = (0, 0)
-    _zlib_stream = zlib.decompressobj(0)
-    negotiated_encodings = {
-        Encoding.RAW,
-    }
-    pixel_format = PixelFormat()
-
     _expected_handler: Callable[..., Awaitable[None]]
-    _expected_len: int
 
-    username: Optional[str] = None
-    password: Optional[str] = None
-    shared: bool = False
+    username: Optional[str]
+    password: Optional[str]
+    shared: bool
 
     def __init__(self) -> None:
+        self._packet = bytearray()
         self._handler = self._handleInitial
+        self._expected_len = 12
+        self._expected_args: Tuple[Any, ...] = ()
+        self._expected_kwargs: Dict[str, Any] = {}
+        self._already_expecting = False
+        self._version: Ver = (0, 0)
+        self._version_server: Ver = (0, 0)
+        self._zlib_stream = zlib.decompressobj(0)
+        self.negotiated_encodings = {
+            Encoding.RAW,
+        }
+        self.pixel_format = PixelFormat()
 
     @property
     def bypp(self) -> int:
@@ -507,12 +504,6 @@ class RFBClient:  # type: ignore[misc]
         self.writer.close()
         await self.writer.wait_closed()
 
-    async def write(self, data: bytes) -> None:
-        if self.writer.is_closing():
-            return
-        self.writer.write(data)
-        await self.writer.drain()
-
     # ------------------------------------------------------
     # states used on connection startup
     # ------------------------------------------------------
@@ -533,7 +524,7 @@ class RFBClient:  # type: ignore[misc]
 
             del self._packet[0:12]
             log.debug("Using protocol version %d.%d" % version)
-            await self.write(b"RFB %03d.%03d\n" % version)
+            self.writer.write(b"RFB %03d.%03d\n" % version)
             self._handler = self._handleExpected
             self._version = version
             self._version_server = version_server
@@ -559,7 +550,7 @@ class RFBClient:  # type: ignore[misc]
         valid_types = set(types) & self.SUPPORTED_AUTHS
         if valid_types:
             sec_type = max(valid_types)
-            await self.write(pack("!B", sec_type))
+            self.writer.write(pack("!B", sec_type))
             if sec_type == AuthTypes.NONE:
                 if self._version < (3, 8):
                     await self._doClientInitialization()
@@ -632,7 +623,7 @@ class RFBClient:  # type: ignore[misc]
 
         cipher = AES.new(keyDigest, AES.MODE_ECB)
         ciphertext = cipher.encrypt(userStruct.encode("utf-8"))
-        await self.write(ciphertext + key)
+        self.writer.write(ciphertext + key)
 
     async def ardRequestCredentials(self) -> None:
         if self.username is None:
@@ -645,7 +636,7 @@ class RFBClient:  # type: ignore[misc]
         key = _vnc_des(password)
         des = DES.new(key, DES.MODE_ECB)
         response = des.encrypt(self._challenge)
-        await self.write(response)
+        self.writer.write(response)
 
     async def _handleVNCAuthResult(self, block: bytes) -> None:
         (result,) = unpack("!I", block)
@@ -678,7 +669,7 @@ class RFBClient:  # type: ignore[misc]
         await self.disconnect()
 
     async def _doClientInitialization(self) -> None:
-        await self.write(pack("!B", self.shared))
+        self.writer.write(pack("!B", self.shared))
         await self.expect(self._handleServerInit, 24)
 
     async def _handleServerInit(self, block: bytes) -> None:
@@ -1307,14 +1298,14 @@ class RFBClient:  # type: ignore[misc]
 
     async def setPixelFormat(self, pixel_format: PixelFormat) -> None:
         pixformat = pixel_format.to_bytes()
-        await self.write(pack("!Bxxx16s", 0, pixformat))
+        self.writer.write(pack("!Bxxx16s", 0, pixformat))
         self.pixel_format = pixel_format
 
     async def setEncodings(self, list_of_encodings: Collection[Encoding]) -> None:
-        await self.write(pack("!BxH", 2, len(list_of_encodings)))
+        self.writer.write(pack("!BxH", 2, len(list_of_encodings)))
         for encoding in list_of_encodings:
             log.debug(f"Offering {encoding!r}")
-            await self.write(pack("!i", encoding))
+            self.writer.write(pack("!i", encoding))
 
     async def framebufferUpdateRequest(
         self,
@@ -1328,26 +1319,26 @@ class RFBClient:  # type: ignore[misc]
             width = self.width - x
         if height is None:
             height = self.height - y
-        await self.write(pack("!BBHHHH", 3, incremental, x, y, width, height))
+        self.writer.write(pack("!BBHHHH", 3, incremental, x, y, width, height))
 
     async def keyEvent(self, key: int, down: bool = True) -> None:
         """For most ordinary keys, the "keysym" is the same as the corresponding ASCII value.
         Other common keys are shown in the KEY_ constants."""
-        await self.write(pack("!BBxxI", 4, down, key))
+        self.writer.write(pack("!BBxxI", 4, down, key))
 
     async def pointerEvent(self, x: int, y: int, buttonmask: int = 0) -> None:
         """Indicates either pointer movement or a pointer button press or release. The pointer is
         now at (x-position, y-position), and the current state of buttons 1 to 8 are represented
         by bits 0 to 7 of button-mask respectively, 0 meaning up, 1 meaning down (pressed).
         """
-        await self.write(pack("!BBHH", 5, buttonmask, x, y))
+        self.writer.write(pack("!BBHH", 5, buttonmask, x, y))
 
     async def clientCutText(self, message: str) -> None:
         """The client has new ISO 8859-1 (Latin-1) text in its cut buffer.
         (aka clipboard)
         """
         data = message.encode("iso-8859-1")
-        await self.write(pack("!BxxxI", 6, len(data)) + data)
+        self.writer.write(pack("!BxxxI", 6, len(data)) + data)
 
     # ------------------------------------------------------
     # callbacks

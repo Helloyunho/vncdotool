@@ -142,14 +142,15 @@ class VNCDoToolClient(rfb.RFBClient):
     password: Optional[str] = None
     shared = True
 
-    pseudocursor = False
-    nocursor = False
-    pseudodesktop = True
-    qemu_extended_key = True
-    last_rect = True
-    force_caps = False
-
-    updateCommited = asyncio.Event()
+    def __init__(self):
+        super().__init__()
+        self.updateCommited = asyncio.Event()
+        self.pseudocursor = False
+        self.nocursor = False
+        self.pseudodesktop = True
+        self.qemu_extended_key = True
+        self.last_rect = True
+        self.force_caps = False
 
     def _decodeKey(self, key: str) -> List[int]:
         if self.force_caps:
