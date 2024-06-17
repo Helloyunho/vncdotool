@@ -498,9 +498,11 @@ class RFBClient:  # type: ignore[misc]
         self.username = username
         self.password = password
         self.shared = shared
-        asyncio.create_task(self.dataReceiveLoop())
+        self.receive_task = asyncio.create_task(self.dataReceiveLoop())
 
     async def disconnect(self) -> None:
+        if self.receive_task:
+            self.receive_task.cancel()
         self.writer.close()
         await self.writer.wait_closed()
 
@@ -1260,7 +1262,7 @@ class RFBClient:  # type: ignore[misc]
             if not data:
                 break
             self._packet.extend(data)
-            asyncio.create_task(self.dataReceived(data))
+            self.receive_task = asyncio.create_task(self.dataReceived(data))
 
     async def dataReceived(self, data: bytes) -> None:
         await self._handler()
