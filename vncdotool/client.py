@@ -246,6 +246,7 @@ class VNCDoToolClient(rfb.RFBClient):
         return self._capture(fp, incremental, x, y, x + w, y + h)
 
     async def refreshScreen(self: TClient, incremental: bool = False) -> TClient:
+        self.updateCommited.clear()
         await self.framebufferUpdateRequest(incremental=incremental)
         await self.updateCommited.wait()
         return self

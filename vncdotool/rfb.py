@@ -1262,7 +1262,7 @@ class RFBClient:  # type: ignore[misc]
             if not data:
                 break
             self._packet.extend(data)
-            self.receive_task = asyncio.create_task(self.dataReceived(data))
+            asyncio.create_task(self.dataReceived(data))
 
     async def dataReceived(self, data: bytes) -> None:
         await self._handler()
