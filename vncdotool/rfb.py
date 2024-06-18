@@ -505,7 +505,6 @@ class RFBClient:  # type: ignore[misc]
         if self.receive_task:
             self.receive_task.cancel()
         self.writer.close()
-        await self.writer.wait_closed()
 
     # ------------------------------------------------------
     # states used on connection startup
