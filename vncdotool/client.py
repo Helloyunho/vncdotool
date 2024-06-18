@@ -402,6 +402,9 @@ class VNCDoToolClient(rfb.RFBClient):
             return
 
         size = (width, height)
+        if self.screen and size != self.screen.size:
+            await self.mouseMove(size[0] * 2, size[1] * 2)
+            await self.mouseMove(0, 0)
         update = Image.frombytes("RGB", size, data, "raw", self.image_mode)
         if not self.screen:
             self.screen = update
