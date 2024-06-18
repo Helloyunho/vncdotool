@@ -413,7 +413,7 @@ class VNCDoToolClient(rfb.RFBClient):
                 max(x + width, self.screen.size[0]),
                 max(y + height, self.screen.size[1]),
             )
-            await self.mouseMove(new_size[0], new_size[1])
+            await self.mouseMove(new_size[0] * 2, new_size[1] * 2)
             await self.mouseMove(0, 0)
             new_screen = Image.new("RGB", new_size, "black")
             new_screen.paste(self.screen, (0, 0))
