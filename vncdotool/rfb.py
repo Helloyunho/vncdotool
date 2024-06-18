@@ -480,6 +480,7 @@ class RFBClient:  # type: ignore[misc]
             Encoding.RAW,
         }
         self.pixel_format = PixelFormat()
+        self.receive_task = None
 
     @property
     def bypp(self) -> int:
