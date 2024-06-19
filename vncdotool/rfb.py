@@ -520,7 +520,6 @@ class RFBClient:  # type: ignore[misc]
         if self.writer is None:
             return
         self.writer.write(data)
-        await self.writer.drain()
 
     # ------------------------------------------------------
     # states used on connection startup
