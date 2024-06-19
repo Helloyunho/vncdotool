@@ -513,7 +513,6 @@ class RFBClient:  # type: ignore[misc]
             self.receive_task.cancel()
         if self.writer:
             self.writer.close()
-            await self.writer.wait_closed()
             self.writer = None
         self.reader = None
 
