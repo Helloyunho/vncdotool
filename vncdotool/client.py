@@ -125,22 +125,17 @@ PF2IM = {
 
 
 class VNCDoToolClient(rfb.RFBClient):
-    encoding = rfb.Encoding.RAW
-    x = 0
-    y = 0
-    buttons = 0
-    screen: Optional[Image.Image] = None
-    image_mode = PF2IM[rfb.PixelFormat()]
-
-    cursor: Optional[Image.Image] = None
-    cmask: Optional[Image.Image] = None
+    encoding: rfb.Encoding
+    x: int
+    y: int
+    buttons: int
+    screen: Optional[Image.Image]
+    image_mode: str
+    cursor: Optional[Image.Image]
+    cmask: Optional[Image.Image]
 
     SPECIAL_KEYS_US = '~!@#$%^&*()_+{}|:"<>?'
-    MAX_DESKTOP_SIZE = 0x10000
-
-    username: Optional[str] = None
-    password: Optional[str] = None
-    shared = True
+    MAX_DESKTOP_SIZE = 0x1000
 
     def __init__(self):
         super().__init__()
@@ -150,12 +145,20 @@ class VNCDoToolClient(rfb.RFBClient):
         self.pseudodesktop = True
         self.qemu_extended_key = True
         self.last_rect = True
-        self.force_caps = False
+        self.force_caps = True
+        self.encoding = rfb.Encoding.RAW
+        self.x = 0
+        self.y = 0
+        self.buttons = 0
+        self.screen = None
+        self.image_mode = PF2IM[rfb.PixelFormat()]
+        self.cursor = None
+        self.cmask = None
 
     def _decodeKey(self, key: str) -> List[int]:
         if self.force_caps:
             if key.isupper() or key in self.SPECIAL_KEYS_US:
-                key = "shift-%c" % key
+                key = "shift-%c" % key.lower()
 
         if len(key) == 1:
             keys = [key]
