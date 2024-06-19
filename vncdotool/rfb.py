@@ -265,6 +265,17 @@ class MsgS2C(IntEnumLookup):
     QEMU_SERVER_MESSAGE = 255
 
 
+class SampleFormat(IntEnumLookup):
+    """Sample format for audio data."""
+
+    U8 = 0
+    S8 = 1
+    U16 = 2
+    S16 = 3
+    U32 = 4
+    S32 = 5
+
+
 # keycodes
 # for KeyEvent()
 KEY_BackSpace = 0xFF08
@@ -715,9 +726,43 @@ class RFBClient:  # type: ignore[misc]
             await self.expect(self._handleConnection, 1)
         elif msgid == MsgS2C.SERVER_CUT_TEXT:
             await self.expect(self._handleServerCutText, 7)
+        elif msgid == MsgS2C.QEMU_SERVER_MESSAGE:
+            await self.expect(self._handleQEMUServerMessage, 1)
         else:
             log.debug(f"unknown message received {MsgS2C.lookup(msgid)!r}")
             await self.disconnect()
+
+    async def _handleQEMUServerMessage(self, block: bytes) -> None:
+        (smsgid,) = unpack("!B", block)
+        if smsgid == 1:
+            await self.expect(self._handleQEMUAudioServerMessage, 2)
+        else:
+            log.debug(f"unknown QEMU message received {smsgid!r}")
+            await self.disconnect()
+
+    async def _handleQEMUAudioServerMessage(self, block: bytes) -> None:
+        (op,) = unpack("!H", block)
+        if op == 0:
+            await self.audio_stream_end()
+            await self.expect(self._handleConnection, 1)
+        elif op == 1:
+            await self.audio_stream_begin()
+            await self.expect(self._handleConnection, 1)
+        elif op == 2:
+            await self.expect(self._handleQEMUAudioServerProviderMessage, 4)
+        else:
+            log.debug(f"unknown QEMU audio op received {op!r}")
+            await self.disconnect()
+
+    async def _handleQEMUAudioServerProviderMessage(self, block: bytes) -> None:
+        (size,) = unpack("!I", block)
+        await self.expect(self._handleQEMUAudioServerStreamMessage, size, size)
+
+    async def _handleQEMUAudioServerStreamMessage(
+        self, block: bytes, size: int
+    ) -> None:
+        await self.audio_stream_provided(size, block)
+        await self.expect(self._handleConnection, 1)
 
     async def _handleFramebufferUpdate(self, block: bytes) -> None:
         (self.rectangles,) = unpack("!xH", block)
@@ -1338,6 +1383,17 @@ class RFBClient:  # type: ignore[misc]
             height = self.height - y
         await self._write(pack("!BBHHHH", 3, incremental, x, y, width, height))
 
+    async def audioStreamBeginRequest(
+        self, sample_format: SampleFormat, nchannels=2, frequency=44100
+    ) -> None:
+        await self._write(
+            pack("!BBHBBI", 255, 1, 2, sample_format, nchannels, frequency)
+        )
+        await self._write(pack("!BBH", 255, 1, 0))
+
+    async def audioStreamStopRequest(self) -> None:
+        await self._write(pack("!BBH", 255, 1, 1))
+
     async def keyEvent(self, key: int, down: bool = True) -> None:
         """For most ordinary keys, the "keysym" is the same as the corresponding ASCII value.
         Other common keys are shown in the KEY_ constants."""
@@ -1431,6 +1487,15 @@ class RFBClient:  # type: ignore[misc]
     async def copy_text(self, text: str) -> None:
         """The server has new ISO 8859-1 (Latin-1) text in its cut buffer.
         (aka clipboard)"""
+
+    async def audio_stream_begin(self) -> None:
+        """Start to send the audio stream."""
+
+    async def audio_stream_provided(self, size: int, data: bytes) -> None:
+        """Send a chunk of audio stream data."""
+
+    async def audio_stream_end(self) -> None:
+        """Stop to send the audio stream."""
 
 
 def _vnc_des(password: str) -> bytes:

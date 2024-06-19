@@ -133,6 +133,9 @@ class VNCDoToolClient(rfb.RFBClient):
     image_mode: str
     cursor: Optional[Image.Image]
     cmask: Optional[Image.Image]
+    sample_format: rfb.SampleFormat
+    nchannels: int
+    frequency: int
 
     SPECIAL_KEYS_US = '~!@#$%^&*()_+{}|:"<>?'
     MAX_DESKTOP_SIZE = 0x1000
@@ -154,6 +157,9 @@ class VNCDoToolClient(rfb.RFBClient):
         self.image_mode = PF2IM[rfb.PixelFormat()]
         self.cursor = None
         self.cmask = None
+        self.sample_format = rfb.SampleFormat.S16
+        self.nchannels = 2
+        self.frequency = 44100
 
     def _decodeKey(self, key: str) -> List[int]:
         if self.force_caps:
@@ -392,6 +398,23 @@ class VNCDoToolClient(rfb.RFBClient):
 
     async def copy_text(self, text: str) -> None:
         log.info(f"clipboard copy {text!r}")
+
+    async def audio_stream_begin(self) -> None:
+        log.info("audio stream begin")
+
+    async def audio_stream_data(self, size: int, data: bytes) -> None:
+        log.info(f"audio stream data {size} bytes")
+
+    async def audio_stream_end(self) -> None:
+        log.info("audio stream end")
+
+    async def audioStreamBeginRequest(
+        self, sample_format=rfb.SampleFormat.S16, nchannels=2, frequency=44100
+    ):
+        self.sample_format = sample_format
+        self.nchannels = nchannels
+        self.frequency = frequency
+        await super().audioStreamBeginRequest(sample_format, nchannels, frequency)
 
     async def paste(self: TClient, message: str) -> TClient:
         await self.clientCutText(message)
