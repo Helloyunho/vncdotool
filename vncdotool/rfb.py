@@ -520,7 +520,7 @@ class RFBClient:  # type: ignore[misc]
     async def _write(self, data: bytes) -> None:
         if self.writer is None:
             return
-        await self._write(data)
+        self.writer.write(data)
         await self.writer.drain()
 
     # ------------------------------------------------------
