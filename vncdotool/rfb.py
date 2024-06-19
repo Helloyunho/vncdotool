@@ -761,7 +761,7 @@ class RFBClient:  # type: ignore[misc]
     async def _handleQEMUAudioServerStreamMessage(
         self, block: bytes, size: int
     ) -> None:
-        await self.audio_stream_provided(size, block)
+        await self.audio_stream_data(size, block)
         await self.expect(self._handleConnection, 1)
 
     async def _handleFramebufferUpdate(self, block: bytes) -> None:
@@ -1491,7 +1491,7 @@ class RFBClient:  # type: ignore[misc]
     async def audio_stream_begin(self) -> None:
         """Start to send the audio stream."""
 
-    async def audio_stream_provided(self, size: int, data: bytes) -> None:
+    async def audio_stream_data(self, size: int, data: bytes) -> None:
         """Send a chunk of audio stream data."""
 
     async def audio_stream_end(self) -> None:
