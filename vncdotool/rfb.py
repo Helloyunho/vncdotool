@@ -522,10 +522,10 @@ class RFBClient:  # type: ignore[misc]
     async def disconnect(self) -> None:
         if self.receive_task:
             self.receive_task.cancel()
+        self.reader = None
         if self.writer:
             self.writer.close()
             self.writer = None
-        self.reader = None
 
     async def _write(self, data: bytes) -> None:
         if self.writer is None:
@@ -1317,7 +1317,12 @@ class RFBClient:  # type: ignore[misc]
     # incomming data redirector
     # ------------------------------------------------------
     async def dataReceiveLoop(self) -> None:
-        while self.reader and not self.reader.at_eof():
+        while (
+            self.reader
+            and not self.reader.at_eof()
+            and self.writer
+            and self.writer.is_closing()
+        ):
             data = await self.reader.read(16)
             if not data:
                 break
