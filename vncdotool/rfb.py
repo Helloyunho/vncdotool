@@ -1321,7 +1321,7 @@ class RFBClient:  # type: ignore[misc]
             self.reader
             and not self.reader.at_eof()
             and self.writer
-            and self.writer.is_closing()
+            and not self.writer.is_closing()
         ):
             data = await self.reader.read(16)
             if not data:
