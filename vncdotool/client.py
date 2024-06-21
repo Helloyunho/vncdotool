@@ -147,6 +147,7 @@ class VNCDoToolClient(rfb.RFBClient):
         self.nocursor = False
         self.pseudodesktop = True
         self.qemu_extended_key = True
+        self.qemu_audio = True
         self.last_rect = True
         self.force_caps = True
         self.encoding = rfb.Encoding.RAW
@@ -391,6 +392,8 @@ class VNCDoToolClient(rfb.RFBClient):
             encodings.append(rfb.Encoding.PSEUDO_LAST_RECT)
         if self.qemu_extended_key:
             encodings.append(rfb.Encoding.PSEUDO_QEMU_EXTENDED_KEY_EVENT)
+        if self.qemu_audio:
+            encodings.append(rfb.Encoding.PSEUDO_QEMU_AUDIO)
         await self.setEncodings(encodings)
 
     async def bell(self) -> None:
