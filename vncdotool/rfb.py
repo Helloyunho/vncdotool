@@ -466,6 +466,7 @@ class RFBClient:  # type: ignore[misc]
         Encoding.PSEUDO_DESKTOP_SIZE,
         Encoding.PSEUDO_LAST_RECT,
         Encoding.PSEUDO_QEMU_EXTENDED_KEY_EVENT,
+        Encoding.PSEUDO_QEMU_AUDIO
     }
 
     _HEADER = b"RFB 000.000\n"
@@ -823,6 +824,10 @@ class RFBClient:  # type: ignore[misc]
             elif encoding == Encoding.PSEUDO_QEMU_EXTENDED_KEY_EVENT:
                 self.negotiated_encodings.add(Encoding.PSEUDO_QEMU_EXTENDED_KEY_EVENT)
                 del self.rectanglePos[-1]  # undo append as this is no real update
+                await self._doConnection()
+            elif encoding == Encoding.PSEUDO_QEMU_AUDIO:
+                self.negotiated_encodings.add(Encoding.PSEUDO_QEMU_AUDIO)
+                del self.rectanglePos[-1]
                 await self._doConnection()
             else:
                 log.debug(f"unknown encoding received {Encoding.lookup(encoding)!r}")
